@@ -22,7 +22,8 @@ static CGFloat const IPadPro12LandscapeWidth = 1366.0f;
  UINavigationControllerDelegate,
  UIPopoverPresentationControllerDelegate,
  UICollectionViewDelegateFlowLayout,
- UIViewControllerPreviewingDelegate
+ UIViewControllerPreviewingDelegate,
+ UICollectionViewDragDelegate
 >
 
 @property (nonatomic, readonly) UICollectionViewFlowLayout *layout;
@@ -115,7 +116,9 @@ static CGFloat SelectAnimationTime = 0.2;
 
     if ([self.traitCollection containsTraitsInCollection:[UITraitCollection traitCollectionWithForceTouchCapability:UIForceTouchCapabilityAvailable]]) {
         [self registerForPreviewingWithDelegate:self sourceView:self.view];
-    } else {
+    }
+    
+    if (self.options.longPressType == WPMediaLongPressOptionPreview){
         [self.view addGestureRecognizer:self.longPressGestureRecognizer];
     }
     
@@ -138,10 +141,29 @@ static CGFloat SelectAnimationTime = 0.2;
     self.collectionView.allowsMultipleSelection = options.allowMultipleSelection;
     self.collectionView.alwaysBounceHorizontal = !options.scrollVertically;
     self.collectionView.alwaysBounceVertical = options.scrollVertically;
+    
+    if (@available(iOS 11.0, *)) {
+        if (self.options.longPressType == WPMediaLongPressOptionDragAndDrop) {
+            self.collectionView.dragInteractionEnabled = YES;
+            self.collectionView.dragDelegate = self;
+            
+            if (originalOptions.longPressType == WPMediaLongPressOptionPreview) {
+                for (UIGestureRecognizer *gesture in self.view.gestureRecognizers) {
+                    if ([gesture isKindOfClass:[UILongPressGestureRecognizer class]]) {
+                        [self.view removeGestureRecognizer:gesture];
+                    }
+                }
+            }
+        } else {
+            self.collectionView.dragInteractionEnabled = NO;
+            self.collectionView.dragDelegate = nil;
+        }
+    }
 
     BOOL refreshNeeded = (originalOptions.filter != options.filter) ||
     (originalOptions.showMostRecentFirst != options.showMostRecentFirst) ||
-    (originalOptions.allowCaptureOfMedia != options.allowCaptureOfMedia);
+    (originalOptions.allowCaptureOfMedia != options.allowCaptureOfMedia) ||
+    (originalOptions.longPressType != options.longPressType);
 
     if (refreshNeeded) {
         [self refreshDataAnimated:NO];
@@ -687,6 +709,30 @@ referenceSizeForFooterInSection:(NSInteger)section
             completionBlock();
         }
     }];
+}
+
+#pragma mark <UICollectionViewDragDelegate>
+- (nonnull NSArray<UIDragItem *> *)collectionView:(nonnull UICollectionView *)collectionView itemsForBeginningDragSession:(nonnull id<UIDragSession>)session atIndexPath:(nonnull NSIndexPath *)indexPath API_AVAILABLE(ios(11.0)) {
+    UICollectionViewCell *cell = [collectionView cellForItemAtIndexPath:indexPath];
+    id<WPMediaAsset> asset = [self assetForPosition:indexPath];
+    if (asset == nil) {
+        return @[];
+    }
+    
+    __block NSItemProvider *itemProvider;
+    __block UIDragItem *dragItem;
+    // TODO: this looks like a code smell.
+    // Are there alternative options for accessing images?
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    if ([asset assetType] == WPMediaTypeImage) {
+         [asset imageWithSize:cell.frame.size completionHandler:^(UIImage * _Nullable result, NSError * _Nullable error) {
+            itemProvider = [[NSItemProvider alloc] initWithObject:result];
+            dragItem = [[UIDragItem alloc] initWithItemProvider:itemProvider];
+             dispatch_semaphore_signal(semaphore);
+        }];
+    }
+    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+    return @[dragItem];
 }
 
 #pragma mark - Media Capture

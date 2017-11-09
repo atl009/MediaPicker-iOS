@@ -12,6 +12,7 @@
         _filter = WPMediaTypeVideo | WPMediaTypeImage;
         _allowMultipleSelection = YES;
         _scrollVertically = YES;
+        _longPressType = WPMediaLongPressOptionPreview;
     }
     return self;
 }
@@ -24,6 +25,7 @@
     options.filter = self.filter;
     options.allowMultipleSelection = self.allowMultipleSelection;
     options.scrollVertically = self.scrollVertically;
+    options.longPressType = self.longPressType;
 
     return options;
 }

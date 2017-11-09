@@ -27,6 +27,11 @@ typedef NS_ENUM(NSInteger, WPMediaLoadOptions){
     WPMediaLoadOptionsGroupsAndAssets
 };
 
+typedef NS_ENUM(NSInteger, WPMediaLongPressOption){
+    WPMediaLongPressOptionPreview = 0,
+    WPMediaLongPressOptionDragAndDrop = 1
+};
+
 
 @protocol WPMediaAsset;
 

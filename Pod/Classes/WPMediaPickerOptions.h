@@ -33,4 +33,9 @@
  */
 @property (nonatomic, assign) BOOL scrollVertically;
 
+/**
+ *  Sets how to handle long-press: preview asset or drag & drop items
+ */
+@property (nonatomic, assign) WPMediaLongPressOption longPressType;
+
 @end

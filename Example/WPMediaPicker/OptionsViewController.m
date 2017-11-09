@@ -10,6 +10,7 @@ NSString const *MediaPickerOptionsPostProcessingStep = @"MediaPickerOptionsPostP
 NSString const *MediaPickerOptionsFilterType = @"MediaPickerOptionsFilterType";
 NSString const *MediaPickerOptionsCustomPreview = @"MediaPickerOptionsCustomPreview";
 NSString const *MediaPickerOptionsScrollInputPickerVertically = @"MediaPickerOptionsScrollInputPickerVertically";
+NSString const *MediaPickerOptionsLongPressType = @"MediaPickerOptionsLongPressType";
 
 typedef NS_ENUM(NSInteger, OptionsViewControllerCell){
     OptionsViewControllerCellShowMostRecentFirst,
@@ -20,6 +21,7 @@ typedef NS_ENUM(NSInteger, OptionsViewControllerCell){
     OptionsViewControllerCellMediaType,
     OptionsViewControllerCellCustomPreview,
     OptionsViewControllerCellInputPickerScroll,
+    OptionsViewControllerCellLongPressType,
     OptionsViewControllerCellTotal
 };
 
@@ -33,6 +35,7 @@ typedef NS_ENUM(NSInteger, OptionsViewControllerCell){
 @property (nonatomic, strong) UITableViewCell *filterMediaCell;
 @property (nonatomic, strong) UITableViewCell *customPreviewCell;
 @property (nonatomic, strong) UITableViewCell *scrollInputPickerCell;
+@property (nonatomic, strong) UITableViewCell *longPressTypeCell;
 
 @end
 
@@ -94,6 +97,20 @@ typedef NS_ENUM(NSInteger, OptionsViewControllerCell){
     self.scrollInputPickerCell.accessoryView = [[UISwitch alloc] init];
     ((UISwitch *)self.scrollInputPickerCell.accessoryView).on = [self.options[MediaPickerOptionsScrollInputPickerVertically] boolValue];
     self.scrollInputPickerCell.textLabel.text = @"Scroll Input Picker Vertically";
+    
+    // Drag & Drop
+    if (@available(iOS 11.0, *)) {
+        self.longPressTypeCell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+        UISegmentedControl *longPressSegment = [[UISegmentedControl alloc] initWithItems:@[@"Preview", @"Drag & Drop"]];
+        self.longPressTypeCell.accessoryView = longPressSegment;
+        NSInteger longPressOption = [self.options[MediaPickerOptionsLongPressType] intValue];
+        if (longPressOption == WPMediaLongPressOptionPreview) {
+            longPressSegment.selectedSegmentIndex = 0;
+        } else {
+            longPressSegment.selectedSegmentIndex = 1;
+        }
+        self.longPressTypeCell.textLabel.text = @"Long Press Action";
+    }
 }
 
 #pragma mark - Table view data source
@@ -105,7 +122,13 @@ typedef NS_ENUM(NSInteger, OptionsViewControllerCell){
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return OptionsViewControllerCellTotal;
+    NSInteger removeLongPressRow;
+    if (@available(iOS 11.0, *)) {
+        removeLongPressRow = 0;
+    } else {
+        removeLongPressRow = 1;
+    }
+    return OptionsViewControllerCellTotal - removeLongPressRow;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -135,6 +158,9 @@ typedef NS_ENUM(NSInteger, OptionsViewControllerCell){
         case OptionsViewControllerCellInputPickerScroll:
             return self.scrollInputPickerCell;
             break;
+        case OptionsViewControllerCellLongPressType:
+            return self.longPressTypeCell;
+            break;
         default:
             break;
     }
@@ -150,6 +176,8 @@ typedef NS_ENUM(NSInteger, OptionsViewControllerCell){
     } else if (selectedFilterOption == 2) {
         filterType = WPMediaTypeImage | WPMediaTypeVideo;
     }
+    
+    NSInteger longPressType = ((UISegmentedControl *)self.longPressTypeCell.accessoryView).selectedSegmentIndex;
 
     if ([self.delegate respondsToSelector:@selector(optionsViewController:changed:)]){
         id<OptionsViewControllerDelegate> delegate = self.delegate;
@@ -162,6 +190,7 @@ typedef NS_ENUM(NSInteger, OptionsViewControllerCell){
              MediaPickerOptionsFilterType:@(filterType),
              MediaPickerOptionsCustomPreview:@(((UISwitch *)self.customPreviewCell.accessoryView).on),
              MediaPickerOptionsScrollInputPickerVertically:@(((UISwitch *)self.scrollInputPickerCell.accessoryView).on),
+             MediaPickerOptionsLongPressType:@(longPressType),
              };
         
         [delegate optionsViewController:self changed:newOptions];

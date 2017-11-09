@@ -230,6 +230,7 @@
     options.allowMultipleSelection = [self.options[MediaPickerOptionsAllowMultipleSelection] boolValue];
     options.filter = [self.options[MediaPickerOptionsFilterType] intValue];
     options.scrollVertically = [self.options[MediaPickerOptionsScrollInputPickerVertically] boolValue];
+    options.longPressType = [self.options[MediaPickerOptionsLongPressType] intValue];
     return options;
 }
 
