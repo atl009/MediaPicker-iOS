@@ -46,9 +46,9 @@
                      MediaPickerOptionsCustomPreview:@(NO),
                      MediaPickerOptionsScrollInputPickerVertically:@(YES),
                      MediaPickerOptionsShowSampleCellOverlays:@(NO),
-                     MediaPickerOptionsShowSearchBar:@(YES)
+                     MediaPickerOptionsShowSearchBar:@(YES),
+                     MediaPickerOptionsLongPressType:@(WPMediaLongPressOptionDragAndDrop),
                      };
-
 }
 
 - (void)viewWillDisappear:(BOOL)animated {

@@ -26,8 +26,9 @@ static CGFloat const IPadPro12LandscapeWidth = 1366.0f;
  UIPopoverPresentationControllerDelegate,
  UICollectionViewDelegateFlowLayout,
  UIViewControllerPreviewingDelegate,
- UISearchBarDelegate
- UICollectionViewDragDelegate
+ UISearchBarDelegate,
+ UICollectionViewDragDelegate,
+ UICollectionViewDropDelegate
 >
 
 @property (nonatomic, readonly) UICollectionViewFlowLayout *layout;

@@ -212,7 +212,7 @@ typedef NS_ENUM(NSInteger, OptionsViewControllerCell){
              MediaPickerOptionsCustomPreview:@(((UISwitch *)self.customPreviewCell.accessoryView).on),
              MediaPickerOptionsScrollInputPickerVertically:@(((UISwitch *)self.scrollInputPickerCell.accessoryView).on),
              MediaPickerOptionsShowSampleCellOverlays:@(((UISwitch *)self.cellOverlaysCell.accessoryView).on),
-             MediaPickerOptionsShowSearchBar:@(((UISwitch *)self.showSearchBarCell.accessoryView).on)
+             MediaPickerOptionsShowSearchBar:@(((UISwitch *)self.showSearchBarCell.accessoryView).on),
              MediaPickerOptionsLongPressType:@(longPressType),
              };
         
