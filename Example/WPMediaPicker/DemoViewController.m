@@ -67,7 +67,7 @@
     [super viewWillAppear:animated];
 }
 
-#pragma - UITableViewControllerDelegate
+#pragma mark - UITableViewControllerDelegate
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
@@ -163,7 +163,7 @@
     return assetSource;
 }
 
-#pragma - <WPMediaPickerViewControllerDelegate>
+#pragma mark - <WPMediaPickerViewControllerDelegate>
 
 - (void)mediaPickerControllerDidCancel:(WPMediaPickerViewController *)picker
 {
@@ -230,7 +230,7 @@
     }
 }
 
-#pragma - Actions
+#pragma mark - Actions
 
 - (void) clearSelection:(id) sender
 {
@@ -283,7 +283,7 @@
     [[self navigationController] pushViewController:optionsViewController animated:YES];
 }
 
-#pragma - Options
+#pragma mark - Options
 
 - (void)optionsViewController:(OptionsViewController *)optionsViewController changed:(NSDictionary *)options
 {
@@ -296,7 +296,7 @@
     [self.navigationController popViewControllerAnimated:YES];
 }
 
-#pragma - UITextFieldDelegate
+#pragma mark - UITextFieldDelegate
 
 - (BOOL)textFieldShouldBeginEditing:(UITextField *)textField
 {

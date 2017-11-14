@@ -863,7 +863,8 @@ referenceSizeForFooterInSection:(NSInteger)section
 }
 
 #pragma mark <UICollectionViewDragDelegate>
-- (nonnull NSArray<UIDragItem *> *)collectionView:(nonnull UICollectionView *)collectionView itemsForBeginningDragSession:(nonnull id<UIDragSession>)session atIndexPath:(nonnull NSIndexPath *)indexPath API_AVAILABLE(ios(11.0)) {
+- (nonnull NSArray<UIDragItem *> *)collectionView:(nonnull UICollectionView *)collectionView itemsForBeginningDragSession:(nonnull id<UIDragSession>)session atIndexPath:(nonnull NSIndexPath *)indexPath API_AVAILABLE(ios(11.0))
+{
     UICollectionViewCell *cell = [collectionView cellForItemAtIndexPath:indexPath];
     id<WPMediaAsset> asset = [self assetForPosition:indexPath];
     if (asset == nil) {
