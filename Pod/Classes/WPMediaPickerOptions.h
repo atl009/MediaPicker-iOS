@@ -34,6 +34,11 @@
 @property (nonatomic, assign) BOOL scrollVertically;
 
 /**
+ If YES the picker will show a search bar on top.
+ */
+@property (nonatomic, assign) BOOL showSearchBar;
+
+/**
  *  Sets how to handle long-press: preview asset or drag & drop items
  */
 @property (nonatomic, assign) WPMediaLongPressOption longPressType;
