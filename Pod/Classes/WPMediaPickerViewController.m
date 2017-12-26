@@ -48,6 +48,9 @@ static CGFloat const IPadPro12LandscapeWidth = 1366.0f;
 @property (nonatomic, strong, readwrite) UISearchBar *searchBar;
 @property (nonatomic, strong) NSLayoutConstraint *searchBarTopConstraint;
 
+@property (nonatomic, strong) UIView *emptyView;
+@property (nonatomic, strong) UILabel *defaultEmptyView;
+
 /**
  The size of the camera preview cell
  */
@@ -65,7 +68,7 @@ static CGFloat SelectAnimationTime = 0.2;
 }
 
 - (instancetype)initWithOptions:(WPMediaPickerOptions *)options {
-    self = [self initWithNibName:nil bundle:nil];
+    self = [super initWithNibName:nil bundle:nil];
     if (self) {
         UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc] init];
         _collectionView = [[UICollectionView alloc] initWithFrame:(CGRectZero) collectionViewLayout:layout];
@@ -96,6 +99,7 @@ static CGFloat SelectAnimationTime = 0.2;
 
     // Setup subviews
     [self addCollectionViewToView];
+    [self addEmptyViewToView];
     [self setupCollectionView];
     [self setupSearchBar];
     [self setupLayout];
@@ -217,6 +221,7 @@ static CGFloat SelectAnimationTime = 0.2;
     layout.minimumInteritemSpacing = photoSpacing;
 
     [self resetContentInset];
+    [self centerEmptyView];
 }
 
 - (void)resetContentInset
@@ -228,7 +233,9 @@ static CGFloat SelectAnimationTime = 0.2;
     } else {
         UIEdgeInsets inset = self.collectionView.contentInset;
         inset.top = self.searchBar.bounds.size.height + self.topLayoutGuide.length;
+        inset.bottom = self.bottomLayoutGuide.length;
         self.collectionView.contentInset = inset;
+        self.collectionView.scrollIndicatorInsets = inset;
         self.searchBarTopConstraint.constant = self.topLayoutGuide.length;
     }
 }
@@ -280,6 +287,13 @@ static CGFloat SelectAnimationTime = 0.2;
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self.captureCell startCapture];
+    [self registerForKeyboardNotifications];
+}
+
+- (void)viewDidDisappear:(BOOL)animated
+{
+    [super viewDidDisappear:animated];
+    [self unregisterForKeyboardNotifications];
 }
 
 - (UIViewController *)viewControllerToUseToPresent
@@ -319,20 +333,12 @@ static CGFloat SelectAnimationTime = 0.2;
     self.collectionView.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.collectionView];
 
-    NSLayoutAnchor *leadingAnchor = self.view.leadingAnchor;
-    NSLayoutAnchor *trailingAnchor = self.view.trailingAnchor;
-
-    if (@available(iOS 11.0, *)) {
-        leadingAnchor = self.view.safeAreaLayoutGuide.leadingAnchor;
-        trailingAnchor = self.view.safeAreaLayoutGuide.trailingAnchor;
-    }
-
     [NSLayoutConstraint activateConstraints:
      @[
        [self.collectionView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
        [self.collectionView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-       [self.collectionView.leadingAnchor constraintEqualToAnchor:leadingAnchor],
-       [self.collectionView.trailingAnchor constraintEqualToAnchor:trailingAnchor]
+       [self.collectionView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+       [self.collectionView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor]
        ]
      ];
 }
@@ -348,10 +354,20 @@ static CGFloat SelectAnimationTime = 0.2;
         self.searchBar.delegate = self;
         self.searchBar.translatesAutoresizingMaskIntoConstraints = NO;
         [self addSearchBarToView];
-    } else if (self.searchBar) {
-        [self.searchBar removeFromSuperview];
-        self.searchBar = nil;
+    } else if (!shouldShowSearchBar && self.searchBar) {
+        [self hideSearchBar];
     }
+}
+
+- (void)showSearchBar
+{
+    [self setupSearchBar];
+}
+
+- (void)hideSearchBar
+{
+    [self.searchBar removeFromSuperview];
+    self.searchBar = nil;
 }
 
 - (void)addSearchBarToView
@@ -360,19 +376,11 @@ static CGFloat SelectAnimationTime = 0.2;
     [self.view addSubview:self.searchBar];
     self.searchBarTopConstraint = [self.searchBar.topAnchor constraintEqualToAnchor:self.view.topAnchor];
 
-    NSLayoutAnchor *leadingAnchor = self.view.leadingAnchor;
-    NSLayoutAnchor *trailingAnchor = self.view.trailingAnchor;
-
-    if (@available(iOS 11.0, *)) {
-        leadingAnchor = self.view.safeAreaLayoutGuide.leadingAnchor;
-        trailingAnchor = self.view.safeAreaLayoutGuide.trailingAnchor;
-    }
-
     [NSLayoutConstraint activateConstraints:
      @[
        self.searchBarTopConstraint,
-       [self.searchBar.leadingAnchor constraintEqualToAnchor:leadingAnchor],
-       [self.searchBar.trailingAnchor constraintEqualToAnchor:trailingAnchor]
+       [self.searchBar.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+       [self.searchBar.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor]
        ]
      ];
 }
@@ -426,6 +434,39 @@ static CGFloat SelectAnimationTime = 0.2;
     return;
 }
 
+- (UIView *)emptyView
+{
+    if (_emptyView) {
+        return _emptyView;
+    }
+
+    if ([self.mediaPickerDelegate respondsToSelector:@selector(emptyViewForMediaPickerController:)]) {
+        _emptyView = [self.mediaPickerDelegate emptyViewForMediaPickerController:self];
+    } else {
+        _emptyView = [self defaultEmptyView];
+    }
+
+    return _emptyView;
+}
+
+- (void)addEmptyViewToView
+{
+    if (self.emptyView.superview == nil) {
+        [self.collectionView addSubview:_emptyView];
+    }
+}
+
+- (UILabel *)defaultEmptyView
+{
+    if (_defaultEmptyView) {
+        return _defaultEmptyView;
+    }
+    _defaultEmptyView = [[UILabel alloc] init];
+    _defaultEmptyView.text = NSLocalizedString(@"Nothing to show", @"Default message for empty media picker");
+    [_defaultEmptyView sizeToFit];
+    return _defaultEmptyView;
+}
+
 #pragma mark - UICollectionViewDataSource
 
 -(void)updateDataWithRemoved:(NSIndexSet *)removed inserted:(NSIndexSet *)inserted changed:(NSIndexSet *)changed moved:(NSArray<id<WPMediaMove>> *)moves {
@@ -441,8 +482,10 @@ static CGFloat SelectAnimationTime = 0.2;
         }
     } completion:^(BOOL finished) {
         [self.collectionView performBatchUpdates:^{
-            if (changed) {
-                [self.collectionView reloadItemsAtIndexPaths:[self indexPathsFromIndexSet:changed section:0]];
+            NSArray<NSIndexPath *> *indexPaths = [self indexPathsFromIndexSet:changed section:0];
+            for (NSIndexPath *indexPath in indexPaths) {
+                WPMediaCollectionViewCell *cell = (WPMediaCollectionViewCell *)[self.collectionView cellForItemAtIndexPath:indexPath];
+                [self configureCell:cell forIndexPath:indexPath];
             }
             for (id<WPMediaMove> move in moves) {
                 [self.collectionView moveItemAtIndexPath:[NSIndexPath indexPathForItem:[move from] inSection:0]
@@ -616,7 +659,15 @@ static CGFloat SelectAnimationTime = 0.2;
 
 - (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section
 {
-    return [self.dataSource numberOfAssets];
+    NSInteger numberOfAssets = [self.dataSource numberOfAssets];
+
+    if (self.searchBar.text && [self.mediaPickerDelegate respondsToSelector:@selector(mediaPickerController:didUpdateSearchWithAssetCount:)]) {
+        [self.mediaPickerDelegate mediaPickerController:self didUpdateSearchWithAssetCount:numberOfAssets];
+    }
+
+    [self.emptyView setHidden:(numberOfAssets != 0)];
+
+    return numberOfAssets;
 }
 
 - (id<WPMediaAsset>)assetForPosition:(NSIndexPath *)indexPath
@@ -632,10 +683,17 @@ static CGFloat SelectAnimationTime = 0.2;
 
 - (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath
 {
-    id<WPMediaAsset> asset = [self assetForPosition:indexPath];
     WPMediaCollectionViewCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:NSStringFromClass([WPMediaCollectionViewCell class]) forIndexPath:indexPath];
 
-    // Configure the cell
+    [self configureCell:cell forIndexPath:indexPath];
+
+    return cell;
+}
+
+- (void)configureCell:(WPMediaCollectionViewCell *)cell forIndexPath:(NSIndexPath *)indexPath
+{
+    id<WPMediaAsset> asset = [self assetForPosition:indexPath];
+
     cell.asset = asset;
     NSUInteger position = [self positionOfAssetInSelection:asset];
     cell.hiddenSelectionIndicator = !self.options.allowMultipleSelection;
@@ -651,8 +709,6 @@ static CGFloat SelectAnimationTime = 0.2;
         [cell setPosition:NSNotFound];
         cell.selected = NO;
     }
-
-    return cell;
 }
 
 - (void)configureOverlayViewForCell:(WPMediaCollectionViewCell *)cell
@@ -719,9 +775,9 @@ referenceSizeForFooterInSection:(NSInteger)section
         UICollectionViewFlowLayout *layout = (UICollectionViewFlowLayout *)self.collectionView.collectionViewLayout;
         if (layout.scrollDirection == UICollectionViewScrollDirectionHorizontal) {
             if (@available(iOS 11, *)) {
-                fixedSize.height = self.view.frame.size.height - self.view.safeAreaInsets.top;
+                fixedSize.height = self.view.frame.size.height - self.view.safeAreaInsets.top - self.view.safeAreaInsets.bottom - self.collectionView.contentInset.bottom;
             } else {
-                fixedSize.height = self.view.frame.size.height - self.collectionView.contentInset.top;
+                fixedSize.height = self.view.frame.size.height - self.collectionView.contentInset.top - self.collectionView.contentInset.bottom;
             }
         } else {
             fixedSize.width = self.view.frame.size.width;
@@ -1046,6 +1102,92 @@ referenceSizeForFooterInSection:(NSInteger)section
     }
 }
 
+#pragma mark - Keyboard Handling
+
+- (BOOL)isPresentedAsPopover
+{
+    for (UIViewController *controller = self; controller != nil; controller = controller.parentViewController) {
+        if (controller.popoverPresentationController) {
+            return controller.popoverPresentationController.arrowDirection != UIPopoverArrowDirectionUnknown;
+        }
+    }
+
+    return NO;
+}
+
+- (void)registerForKeyboardNotifications
+{
+    if (![self.parentViewController isKindOfClass:[WPInputMediaPickerViewController class]]) {
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardWillShowNotification:) name:UIKeyboardWillShowNotification object:nil];
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardWillHideNotification:) name:UIKeyboardWillHideNotification object:nil];
+    }
+}
+
+- (void)unregisterForKeyboardNotifications
+{
+    if (![self.parentViewController isKindOfClass:[WPInputMediaPickerViewController class]]) {
+        [NSNotificationCenter.defaultCenter removeObserver:self name:UIKeyboardWillShowNotification object:nil];
+        [NSNotificationCenter.defaultCenter removeObserver:self name:UIKeyboardWillHideNotification object:nil];
+    }
+}
+
+- (void)keyboardWillShowNotification:(NSNotification *)notification
+{
+    if([self isPresentedAsPopover]) {
+        return;
+    }
+
+    CGRect keyboardFrameEnd = [notification.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+    UIEdgeInsets contentInset = self.collectionView.contentInset;
+
+    contentInset.bottom = keyboardFrameEnd.size.height - self.view.layoutMargins.bottom; //Remove extra safe area
+    if (!self.tabBarController.tabBar.translucent) {
+        contentInset.bottom -= self.tabBarController.tabBar.frame.size.height;
+    }
+    self.collectionView.contentInset = contentInset;
+    self.collectionView.scrollIndicatorInsets = contentInset;
+
+    [self centerEmptyView];
+
+    [self.collectionView.collectionViewLayout invalidateLayout];
+}
+
+- (void)keyboardWillHideNotification:(NSNotification *)notification
+{
+    UIEdgeInsets contentInset = self.collectionView.contentInset;
+
+    if (@available(iOS 11, *)) {
+        contentInset.bottom = 0.f;
+    } else {
+        contentInset.bottom = self.bottomLayoutGuide.length;
+    }
+
+    self.collectionView.contentInset = contentInset;
+    self.collectionView.scrollIndicatorInsets = contentInset;
+
+    [self centerEmptyView];
+
+    [self.collectionView.collectionViewLayout invalidateLayout];
+}
+
+
+/**
+ Centers the empty view taking into account the collection view height and content insets.
+ */
+- (void)centerEmptyView
+{
+    self.emptyView.center = self.collectionView.center;
+
+    CGRect emptyViewFrame = self.emptyView.frame;
+    CGFloat superviewHeight = self.collectionView.frame.size.height;
+    CGFloat totalInsets = self.collectionView.contentInset.top + self.collectionView.contentInset.bottom;
+
+    superviewHeight = superviewHeight - totalInsets > 0 ? superviewHeight - totalInsets : superviewHeight;
+    emptyViewFrame.origin.y = (superviewHeight / 2.0) - (emptyViewFrame.size.height / 2.0) + self.collectionView.frame.origin.y;
+
+    self.emptyView.frame = emptyViewFrame;
+}
+
 #pragma mark - UIViewControllerPreviewingDelegate
 
 - (nullable UIViewController *)previewingContext:(id <UIViewControllerPreviewing>)previewingContext viewControllerForLocation:(CGPoint)location
@@ -1140,6 +1282,11 @@ referenceSizeForFooterInSection:(NSInteger)section
 - (void)searchBarCancelButtonClicked:(UISearchBar *)searchBar
 {
     [searchBar resignFirstResponder];
+    self.searchBar.text = nil;
+    if ([self.dataSource respondsToSelector:@selector(searchCancelled)]) {
+        [self.dataSource searchCancelled];
+        [self.collectionView reloadData];
+    }
 }
 
 @end
