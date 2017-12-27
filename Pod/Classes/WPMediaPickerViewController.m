@@ -919,28 +919,73 @@ referenceSizeForFooterInSection:(NSInteger)section
 }
 
 #pragma mark <UICollectionViewDragDelegate>
-- (nonnull NSArray<UIDragItem *> *)collectionView:(nonnull UICollectionView *)collectionView itemsForBeginningDragSession:(nonnull id<UIDragSession>)session atIndexPath:(nonnull NSIndexPath *)indexPath API_AVAILABLE(ios(11.0))
+
+- (nonnull NSArray<UIDragItem *> *)collectionView:(nonnull UICollectionView *)collectionView
+                     itemsForBeginningDragSession:(nonnull id<UIDragSession>)session
+                                      atIndexPath:(nonnull NSIndexPath *)indexPath API_AVAILABLE(ios(11.0))
 {
-    UICollectionViewCell *cell = [collectionView cellForItemAtIndexPath:indexPath];
     id<WPMediaAsset> asset = [self assetForPosition:indexPath];
     if (asset == nil) {
         return @[];
     }
     
-    __block NSItemProvider *itemProvider;
-    __block UIDragItem *dragItem;
-    // TODO: this looks like a code smell.
-    // Are there alternative options for accessing images?
-    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    NSItemProvider *itemProvider;
     if ([asset assetType] == WPMediaTypeImage) {
-         [asset imageWithSize:cell.frame.size completionHandler:^(UIImage * _Nullable result, NSError * _Nullable error) {
-            itemProvider = [[NSItemProvider alloc] initWithObject:result];
-            dragItem = [[UIDragItem alloc] initWithItemProvider:itemProvider];
-             dispatch_semaphore_signal(semaphore);
-        }];
+        itemProvider = [self imageItemProviderAtIndexPath:indexPath];
+    } else if ([asset assetType] == WPMediaTypeVideo) {
+        itemProvider = [self videoItemProviderAtIndexPath:indexPath];
     }
-    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-    return @[dragItem];
+    UIDragItem *dragItem = [[UIDragItem alloc] initWithItemProvider:itemProvider];
+    
+    return @[ dragItem ];
+}
+
+- (NSItemProvider *)imageItemProviderAtIndexPath:(NSIndexPath *)indexPath API_AVAILABLE(ios(11.0))
+{
+    NSItemProvider *itemProvider = [[NSItemProvider alloc] init];
+    UICollectionViewCell *cell = [self.collectionView cellForItemAtIndexPath:indexPath];
+    id<WPMediaAsset> asset = [self assetForPosition:indexPath];
+    [itemProvider registerDataRepresentationForTypeIdentifier:((NSString *)kUTTypeImage) visibility: NSItemProviderRepresentationVisibilityAll loadHandler:^NSProgress * _Nullable(void (^ _Nonnull completionHandler)(NSData * _Nullable, NSError * _Nullable)) {
+        [asset imageWithSize:cell.frame.size completionHandler:^(UIImage * _Nullable result, NSError * _Nullable error) {
+            CGDataProviderRef dataProvider = CGImageGetDataProvider(result.CGImage);
+            NSData *imageData = (id)CFBridgingRelease(CGDataProviderCopyData(dataProvider));
+            completionHandler(imageData, nil);
+        }];
+        return nil;
+    }];
+    
+    return itemProvider;
+}
+
+- (NSItemProvider *)videoItemProviderAtIndexPath:(NSIndexPath *)indexPath API_AVAILABLE(ios(11.0))
+{
+    NSItemProvider *itemProvider = [[NSItemProvider alloc] init];
+    id<WPMediaAsset> asset = [self assetForPosition:indexPath];
+    [itemProvider registerDataRepresentationForTypeIdentifier:((NSString *)kUTTypeVideo) visibility: NSItemProviderRepresentationVisibilityAll loadHandler:^NSProgress * _Nullable(void (^ _Nonnull completionHandler)(NSData * _Nullable, NSError * _Nullable)) {
+        [asset videoAssetWithCompletionHandler:^(AVAsset * _Nullable asset, NSError * _Nullable error) {
+            NSString *uniqueFileID = [[NSProcessInfo processInfo] globallyUniqueString];
+            NSString *fileName = [NSString stringWithFormat:@"%@-%@", uniqueFileID, @"video.mov"];
+            NSURL *fileURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:fileName]];
+            
+            AVAssetExportSession *exportSession = [[AVAssetExportSession alloc] initWithAsset:asset presetName:AVAssetExportPresetHighestQuality];
+            exportSession.outputFileType = AVFileTypeQuickTimeMovie; // MARK: Is this the best assumption for what other apps will want? Should this be .mp4 instead?
+            exportSession.outputURL = fileURL;
+            
+            [exportSession exportAsynchronouslyWithCompletionHandler:^{
+                NSData *videoData = [NSData dataWithContentsOfURL:fileURL];
+                completionHandler(videoData, nil);
+                
+                NSError *error = nil;
+                [[NSFileManager defaultManager] removeItemAtURL:fileURL error:&error];
+                if (error != nil) {
+                    // Do we care if the temporary directory didn't remove the files?
+                }
+            }];
+        }];
+        return nil;
+    }];
+    
+    return itemProvider;
 }
 
 #pragma mark - Media Capture
